@@ -1,69 +1,60 @@
-package app
+package twitter_scraper
 
 import (
-	"fmt"
+	"log"
 	"time"
 
-	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 )
 
-// @@@SNIPSTART money-transfer-project-template-go-workflow
-func MoneyTransfer(ctx workflow.Context, input PaymentDetails) (string, error) {
-
-	// RetryPolicy specifies how to automatically handle retries if an Activity fails.
-	retrypolicy := &temporal.RetryPolicy{
-		InitialInterval:        time.Second,
-		BackoffCoefficient:     2.0,
-		MaximumInterval:        100 * time.Second,
-		MaximumAttempts:        0, // unlimited retries
-		NonRetryableErrorTypes: []string{"InvalidAccountError", "InsufficientFundsError"},
-	}
+func FetchTweetsByUserWorkflow(ctx workflow.Context, userId string) error {
 
 	options := workflow.ActivityOptions{
-		// Timeout options specify when to automatically timeout Activity functions.
 		StartToCloseTimeout: time.Minute,
-		// Optionally provide a customized RetryPolicy.
-		// Temporal retries failed Activities by default.
-		RetryPolicy: retrypolicy,
 	}
 
-	// Apply the options.
 	ctx = workflow.WithActivityOptions(ctx, options)
 
-	// Withdraw money.
-	var withdrawOutput string
+	tweetsErr := workflow.ExecuteActivity(ctx, GetTweetsByUser, userId).Get(ctx, nil)
 
-	withdrawErr := workflow.ExecuteActivity(ctx, Withdraw, input).Get(ctx, &withdrawOutput)
-
-	if withdrawErr != nil {
-		return "", withdrawErr
+	if tweetsErr != nil {
+		return tweetsErr
 	}
 
-	// Deposit money.
-	var depositOutput string
-
-	depositErr := workflow.ExecuteActivity(ctx, Deposit, input).Get(ctx, &depositOutput)
-
-	if depositErr != nil {
-		// The deposit failed; put money back in original account.
-
-		var result string
-
-		refundErr := workflow.ExecuteActivity(ctx, Refund, input).Get(ctx, &result)
-
-		if refundErr != nil {
-			return "",
-				fmt.Errorf("Deposit: failed to deposit money into %v: %v. Money could not be returned to %v: %w",
-					input.TargetAccount, depositErr, input.SourceAccount, refundErr)
-		}
-
-		return "", fmt.Errorf("Deposit: failed to deposit money into %v: Money returned to %v: %w",
-			input.TargetAccount, input.SourceAccount, depositErr)
-	}
-
-	result := fmt.Sprintf("Transfer complete (transaction IDs: %s, %s)", withdrawOutput, depositOutput)
-	return result, nil
+	return nil
 }
 
-// @@@SNIPEND
+func GenerateOpenAccountWorkflow(ctx workflow.Context) error {
+	options := workflow.ActivityOptions{
+		StartToCloseTimeout: time.Minute,
+	}
+
+	ctx = workflow.WithActivityOptions(ctx, options)
+
+	var guestToken string
+	var flowToken string
+	var openAccount OpenAccount
+	guestTokenErr := workflow.ExecuteActivity(ctx, GenerateGuestToken).Get(ctx, &guestToken)
+
+	if guestTokenErr != nil {
+		return guestTokenErr
+	}
+
+	flowTokenErr := workflow.ExecuteActivity(ctx, GenerateFlowToken, guestToken).Get(ctx, &flowToken)
+
+	if flowTokenErr != nil {
+		return flowTokenErr
+	}
+
+	openAccountErr := workflow.ExecuteActivity(ctx, GenerateOpenAccount, flowToken, guestToken).Get(ctx, &openAccount)
+
+	if openAccountErr != nil {
+		return flowTokenErr
+	}
+
+	log.Println(guestToken)
+	log.Println(flowToken)
+	log.Println(openAccount)
+
+	return nil
+}
