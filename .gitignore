@@ -16,3 +16,5 @@
 
 # IDE dirs
 .idea/
+.temp/
+.env
