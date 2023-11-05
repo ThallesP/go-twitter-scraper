@@ -3,7 +3,7 @@ package tweet
 import (
 	"context"
 	"encoding/json"
-	"log"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -43,10 +43,10 @@ type RawResponse struct {
 }
 
 func GetTweetsByUserActivity(ctx context.Context, userId string) error {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	log.Printf("Fetching tweets for user %s", userId)
+	slog.Info("Fetching tweets from user", slog.String("user_id", userId))
 	account := GetRandomAccount()
 	token := oauth1.NewToken(account.AccessToken, account.AccessTokenSecret)
 
@@ -96,6 +96,8 @@ func GetTweetsByUserActivity(ctx context.Context, userId string) error {
 		}
 	}
 
+	slog.Info("Inserting tweets", slog.Int("count", len(tweetsInsert)))
+
 	result := client.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "id"}},
 		DoNothing: true,
@@ -104,6 +106,8 @@ func GetTweetsByUserActivity(ctx context.Context, userId string) error {
 	if result.Error != nil {
 		return result.Error
 	}
+
+	slog.Info("Inserted tweets", slog.Int("count", len(tweetsInsert)))
 
 	return nil
 }
