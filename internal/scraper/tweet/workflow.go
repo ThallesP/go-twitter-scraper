@@ -18,7 +18,7 @@ func ScrapeTweetsByUsersWorkflow(ctx workflow.Context) error {
 
 	var usersIds []string
 
-	result := db.Model(&database.TweetModel{}).Distinct("user_id").Where("random() < 0.01").Limit(1000).Pluck("user_id", &usersIds)
+	result := db.Model(&database.TweetModel{}).Distinct("user_id").Limit(1000).Pluck("user_id", &usersIds)
 
 	if result.Error != nil {
 		return result.Error
