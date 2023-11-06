@@ -80,6 +80,10 @@ func GetTweetsByUserActivity(ctx context.Context, userId string) error {
 
 	tweets := maps.Values(rawResponse.TwitterObjects.Tweets)
 
+	if len(tweets) == 0 {
+		return nil
+	}
+
 	client := database.GetClientOrPanic()
 
 	tweetsInsert := make([]database.TweetModel, len(tweets))
