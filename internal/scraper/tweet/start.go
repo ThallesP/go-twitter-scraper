@@ -13,7 +13,7 @@ func StartUserTweetsScraper() {
 	options := client.StartWorkflowOptions{
 		ID:           "fetch-tweets-by-user",
 		TaskQueue:    temporal.ScrapeTweetsByUsersQueue,
-		CronSchedule: "0 * * * *", // every 1 hour
+		CronSchedule: "*/10 * * * *", // every 1 hour
 	}
 
 	c.ExecuteWorkflow(context.Background(), options, ScrapeTweetsByUsersWorkflow)
