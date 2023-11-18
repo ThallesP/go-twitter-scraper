@@ -25,7 +25,7 @@ func ScrapeTweetsByUsersWorkflow(ctx workflow.Context) error {
 	}
 
 	for _, userId := range usersIds {
-		workflow.ExecuteActivity(ctx, GetTweetsByUserActivity, userId).Get(ctx, nil)
+		workflow.ExecuteActivity(ctx, GetTweetsByUserActivity, userId)
 	}
 
 	return nil

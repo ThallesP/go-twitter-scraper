@@ -17,7 +17,7 @@ func GetClientOrPanic() *gorm.DB {
 	db, err := gorm.Open(postgres.Open(os.Getenv("DATABASE_DSN")), &gorm.Config{})
 
 	if err != nil {
-		panic("failed to connect database")
+		panic("failed to connect database") // Consider not using panic anywhere in the code
 	}
 
 	dbInstance = db

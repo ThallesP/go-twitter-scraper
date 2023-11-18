@@ -5,6 +5,7 @@ import (
 
 	"github.com/thallesp/go-twitter-scraper/internal/temporal"
 	"go.temporal.io/sdk/client"
+	temp "go.temporal.io/sdk/temporal"
 )
 
 func StartUserTweetsScraper() {
@@ -13,7 +14,10 @@ func StartUserTweetsScraper() {
 	options := client.StartWorkflowOptions{
 		ID:           "fetch-tweets-by-user",
 		TaskQueue:    temporal.ScrapeTweetsByUsersQueue,
-		CronSchedule: "*/10 * * * *", // every 1 hour
+		CronSchedule: "0 * * * *", // every 1 hour
+		RetryPolicy: &temp.RetryPolicy{
+			NonRetryableErrorTypes: []string{"failed to connect database"},
+		},
 	}
 
 	c.ExecuteWorkflow(context.Background(), options, ScrapeTweetsByUsersWorkflow)
