@@ -4,12 +4,16 @@ import (
 	"time"
 
 	"github.com/thallesp/go-twitter-scraper/internal/database"
+	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 )
 
 func ScrapeTweetsByUsersWorkflow(ctx workflow.Context) error {
 	options := workflow.ActivityOptions{
 		StartToCloseTimeout: time.Minute,
+		RetryPolicy: &temporal.RetryPolicy{
+			MaximumAttempts: 1,
+		},
 	}
 
 	ctx = workflow.WithActivityOptions(ctx, options)
@@ -41,11 +45,7 @@ func ScrapeTweetsByUsersWorkflow(ctx workflow.Context) error {
 	}
 
 	for _, future := range futureActivities {
-		err := future.Get(ctx, nil)
-
-		if err != nil {
-			return err
-		}
+		future.Get(ctx, nil)
 	}
 
 	return nil
