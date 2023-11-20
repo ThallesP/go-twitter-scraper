@@ -14,7 +14,7 @@ func StartUserTweetsScraper() {
 	options := client.StartWorkflowOptions{
 		ID:           "fetch-tweets-by-user",
 		TaskQueue:    temporal.ScrapeTweetsByUsersQueue,
-		CronSchedule: "0 * * * *", // every 1 hour
+		CronSchedule: "*/10 * * * *",
 		RetryPolicy: &temp.RetryPolicy{
 			NonRetryableErrorTypes: []string{"failed to connect database"},
 		},
