@@ -7,11 +7,14 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
 	"os"
 	"strings"
 	"sync"
 	"time"
+
+	_ "embed"
 
 	_ "github.com/joho/godotenv/autoload"
 	"github.com/thallesp/go-twitter-scraper/internal/database"
@@ -53,14 +56,7 @@ func main() {
 		go func(db *gorm.DB, wg *sync.WaitGroup) {
 			defer wg.Done()
 
-			guestToken, err := GenerateGuestToken()
-
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-
-			flowToken, err := GenerateFlowToken(guestToken)
+			jar, err := cookiejar.New(&cookiejar.Options{})
 
 			if err != nil {
 				fmt.Println(err)
@@ -68,7 +64,22 @@ func main() {
 				return
 			}
 
-			openAccount, err := GenerateOpenAccount(flowToken, guestToken)
+			guestToken, err := GenerateGuestToken(jar)
+
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+
+			flowToken, err := GenerateFlowToken(jar, guestToken)
+
+			if err != nil {
+				fmt.Println(err)
+
+				return
+			}
+
+			openAccount, err := GenerateOpenAccount(jar, flowToken, guestToken)
 
 			if err != nil {
 				fmt.Println(err)
@@ -81,8 +92,8 @@ func main() {
 
 }
 
-func GenerateGuestToken() (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+func GenerateGuestToken(jar *cookiejar.Jar) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	proxyUrl, err := url.Parse(os.Getenv("PROXY_ROTATOR_URL"))
@@ -93,6 +104,7 @@ func GenerateGuestToken() (string, error) {
 
 	client := http.Client{
 		Transport: &http.Transport{Proxy: http.ProxyURL(proxyUrl)},
+		Jar:       jar,
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "POST", GuestTokenEndpoint, nil)
@@ -101,7 +113,7 @@ func GenerateGuestToken() (string, error) {
 		return "", err
 	}
 
-	req.Header.Set("User-Agent", "TwitterAndroid/99")
+	req.Header.Set("User-Agent", "TwitterAndroid/9.95.0-release.0 (29950000-r-0) ONEPLUS+A3010/9 (OnePlus;ONEPLUS+A3010;OnePlus;OnePlus3;0;;1;2016)")
 	req.Header.Set("Authorization", BearerToken)
 
 	res, err := client.Do(req)
@@ -127,8 +139,8 @@ func GenerateGuestToken() (string, error) {
 	return rawGuestToken.GuestToken, nil
 }
 
-func GenerateFlowToken(guestToken string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+func GenerateFlowToken(jar *cookiejar.Jar, guestToken string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	proxyUrl, err := url.Parse(os.Getenv("PROXY_ROTATOR_URL"))
@@ -139,6 +151,7 @@ func GenerateFlowToken(guestToken string) (string, error) {
 
 	client := http.Client{
 		Transport: &http.Transport{Proxy: http.ProxyURL(proxyUrl)},
+		Jar:       jar,
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "POST", FlowTokenEndpoint, bytes.NewReader([]byte(FlowTokenPayload)))
@@ -147,7 +160,7 @@ func GenerateFlowToken(guestToken string) (string, error) {
 		return "", err
 	}
 
-	req.Header.Set("User-Agent", "TwitterAndroid/99")
+	req.Header.Set("User-Agent", "TwitterAndroid/9.95.0-release.0 (29950000-r-0) ONEPLUS+A3010/9 (OnePlus;ONEPLUS+A3010;OnePlus;OnePlus3;0;;1;2016)")
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("x-guest-token", guestToken)
 	req.Header.Set("Authorization", BearerToken)
@@ -179,7 +192,7 @@ func GenerateFlowToken(guestToken string) (string, error) {
 	return rawFlowToken.FlowToken, nil
 }
 
-func GenerateOpenAccount(flowToken string, guestToken string) (database.OpenAccountModel, error) {
+func GenerateOpenAccount(jar *cookiejar.Jar, flowToken string, guestToken string) (database.OpenAccountModel, error) {
 	proxyUrl, err := url.Parse(os.Getenv("PROXY_ROTATOR_URL"))
 
 	if err != nil {
@@ -188,6 +201,7 @@ func GenerateOpenAccount(flowToken string, guestToken string) (database.OpenAcco
 
 	client := http.Client{
 		Transport: &http.Transport{Proxy: http.ProxyURL(proxyUrl)},
+		Jar:       jar,
 	}
 
 	req, err := http.NewRequest("POST", OpenAccountEndpoint, bytes.NewReader([]byte(strings.Replace(OpenAccountPayload, "||<<REPLACE>>||", flowToken, 1))))
@@ -196,7 +210,7 @@ func GenerateOpenAccount(flowToken string, guestToken string) (database.OpenAcco
 		return database.OpenAccountModel{}, err
 	}
 
-	req.Header.Set("User-Agent", "TwitterAndroid/99")
+	req.Header.Set("User-Agent", "TwitterAndroid/9.95.0-release.0 (29950000-r-0) ONEPLUS+A3010/9 (OnePlus;ONEPLUS+A3010;OnePlus;OnePlus3;0;;1;2016)")
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("x-guest-token", guestToken)
 	req.Header.Set("Authorization", BearerToken)
