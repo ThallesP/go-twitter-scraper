@@ -42,10 +42,29 @@ type RawResponse struct {
 	} `json:"twitter_objects"`
 }
 
-func GetTweetsByUserActivity(ctx context.Context, userId string) error {
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
+type RawResponseSearch struct {
+	Metadata struct {
+		Cursor               string `json:"cursor"`
+		RefreshIntervalInSec int    `json:"refresh_interval_in_sec"`
+	} `json:"metadata"`
+	Modules []struct {
+		Status struct {
+			Data struct {
+				CreatedAt     string `json:"created_at"`
+				IDStr         string `json:"id_str"`
+				FullText      string `json:"full_text"`
+				RetweetCount  int    `json:"retweet_count"`
+				FavoriteCount int    `json:"favorite_count"`
+				User          struct {
+					IDStr string `json:"id_str"`
+				} `json:"user"`
+				Lang string `json:"lang"`
+			} `json:"data"`
+		} `json:"status"`
+	} `json:"modules"`
+}
 
+func GetTweetsByUserActivity(ctx context.Context, userId string) error {
 	slog.Info("Fetching tweets from user", slog.String("user_id", userId))
 	account := GetRandomAccount()
 	token := oauth1.NewToken(account.AccessToken, account.AccessTokenSecret)
@@ -112,6 +131,66 @@ func GetTweetsByUserActivity(ctx context.Context, userId string) error {
 	}
 
 	slog.Info("Inserted tweets", slog.Int("count", len(tweetsInsert)))
+
+	return nil
+}
+
+func FindInitialUsers(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	account := GetRandomAccount()
+
+	token := oauth1.NewToken(account.AccessToken, account.AccessTokenSecret)
+
+	httpClient := OAuthConfig.Client(ctx, token)
+
+	req, err := http.NewRequest("GET", "https://api.twitter.com/1.1/search/universal.json", nil)
+
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("User-Agent", "TwitterAndroid/99")
+
+	q := req.URL.Query()
+	q.Add("q", "a")
+	q.Add("result_type", "recent")
+	q.Add("count", "20")
+	q.Add("tweet_mode", "extended")
+	req.URL.RawQuery = q.Encode()
+
+	res, err := httpClient.Do(req)
+
+	if err != nil {
+		return err
+	}
+
+	defer res.Body.Close()
+
+	var rawResponseSearch RawResponseSearch
+	err = json.NewDecoder(res.Body).Decode(&rawResponseSearch)
+
+	if err != nil {
+		return err
+	}
+
+	client := database.GetClientOrPanic()
+
+	for _, tweet := range rawResponseSearch.Modules {
+		client.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "id"}},
+			DoNothing: true,
+		}).Create(&database.TweetModel{
+			ID:            tweet.Status.Data.IDStr,
+			Content:       tweet.Status.Data.FullText,
+			UserID:        tweet.Status.Data.User.IDStr,
+			RetweetCount:  tweet.Status.Data.RetweetCount,
+			Lang:          tweet.Status.Data.Lang,
+			FavoriteCount: tweet.Status.Data.FavoriteCount,
+			CreatedAt:     tweet.Status.Data.CreatedAt,
+		})
+	}
 
 	return nil
 }

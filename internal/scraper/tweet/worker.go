@@ -16,6 +16,7 @@ func StartUserTweetsWorker() {
 
 	w.RegisterWorkflow(ScrapeTweetsByUsersWorkflow)
 	w.RegisterActivity(GetTweetsByUserActivity)
+	w.RegisterActivity(FindInitialUsers)
 
 	err := w.Run(worker.InterruptCh())
 	if err != nil {

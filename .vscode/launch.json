@@ -1,5 +1,15 @@
 {
     "gopls": {
         "experimentalWorkspaceModule": true
-    }
+    },
+    "configurations": [
+        {
+            "name": "Launch file",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "cwd": "${workspaceFolder}",
+            "program": "${file}"
+        }
+    ]
 }

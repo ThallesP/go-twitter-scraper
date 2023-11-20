@@ -24,8 +24,28 @@ func ScrapeTweetsByUsersWorkflow(ctx workflow.Context) error {
 		return result.Error
 	}
 
-	for _, userId := range usersIds {
-		workflow.ExecuteActivity(ctx, GetTweetsByUserActivity, userId)
+	if len(usersIds) == 0 {
+		workflow.ExecuteActivity(ctx, FindInitialUsers, nil).Get(ctx, nil)
+	}
+
+	result = db.Model(&database.TweetModel{}).Distinct("user_id").Limit(1000).Pluck("user_id", &usersIds)
+
+	if result.Error != nil {
+		return result.Error
+	}
+
+	futureActivities := make([]workflow.Future, len(usersIds))
+
+	for i, userId := range usersIds {
+		futureActivities[i] = workflow.ExecuteActivity(ctx, GetTweetsByUserActivity, userId)
+	}
+
+	for _, future := range futureActivities {
+		err := future.Get(ctx, nil)
+
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
